@@ -1,8 +1,10 @@
 import pulp
-from .utils import TypeChecker, Large_M
+import type_enforced
+from pamda import utils
+from .utils import Large_M
 
 
-class NetworkStructure(TypeChecker):
+class NetworkStructure(utils.error):
     def __init__(self, name, cashflow_for_use=0, cashflow_per_unit=0, min_units=0, max_units=0):
         self.name = name
         self.min_units = min_units
@@ -23,15 +25,15 @@ class NetworkStructure(TypeChecker):
         self.reflows_out = []
         self.is_reflow = False
 
+    @type_enforced.Enforcer
     def add_inflow(self, obj):
-        self.check_type("add_inflow", obj, [Flow])
         if obj.is_reflow:
             self.reflows_in.append(obj)
         else:
             self.inflows.append(obj)
 
+    @type_enforced.Enforcer
     def add_outflow(self, obj):
-        self.check_type("add_outflow", obj, [Flow])
         if obj.is_reflow:
             self.reflows_out.append(obj)
         else:
@@ -119,7 +121,7 @@ class Demand(NetworkStructure):
         self.outflows = self.inflows
 
 
-class Model(TypeChecker):
+class Model(utils.error):
     def __init__(self, name, objects={}, pulp_log=False, except_on_infeasible=True):
         self.name = name
         self.objects = objects
@@ -156,7 +158,8 @@ class Model(TypeChecker):
             if value.is_reflow is False
         }
 
-    def add_object(self, entity):
+    @type_enforced.Enforcer
+    def add_object(self, entity: [Origin, Node, Demand, Flow]):
         if entity.name in self.objects.keys():
             self.exception(f"Duplicate name detected: `{entity.name}`")
         self.objects[entity.name] = entity
@@ -170,17 +173,18 @@ class Model(TypeChecker):
             entity = Demand(*args, **kwargs)
         else:
             self.exception(f"entity `variety` not recognized for input: `{variety}`")
-        self.add_object(entity)
+        self.add_object(entity=entity)
 
     def add_flow(self, start, end, *args, **kwargs):
         start_entity = self.objects.get(start)
         if start_entity == None:
             self.exception(f"`start` entity not found in model for input: `{start}`")
-        self.check_type("add_flow (start)", start_entity, [Origin, Node, Demand])
         end_entity = self.objects.get(end)
         if end_entity == None:
             self.exception(f"`end` entity not found in model for input: `{end}`")
-        self.check_type("add_flow (end)", end_entity, [Origin, Node, Demand])
+        self.add_flow_with_entities(start_entity=start_entity, end_entity=end_entity, *args, **kwargs)
+
+    def add_flow_with_entities(self, start_entity: [Origin, Node, Demand], end_entity: [Origin, Node, Demand], *args, **kwargs):
         flow = Flow(*args, **kwargs)
         self.add_object(flow)
         start_entity.add_outflow(flow)
