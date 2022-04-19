@@ -25,20 +25,6 @@ class NetworkStructure(utils.error):
         self.reflows_out = []
         self.is_reflow = False
 
-    @type_enforced.Enforcer
-    def add_inflow(self, obj):
-        if obj.is_reflow:
-            self.reflows_in.append(obj)
-        else:
-            self.inflows.append(obj)
-
-    @type_enforced.Enforcer
-    def add_outflow(self, obj):
-        if obj.is_reflow:
-            self.reflows_out.append(obj)
-        else:
-            self.outflows.append(obj)
-
     def sum_flows(self, flow_list):
         return sum([i.flow.value() for i in flow_list])
 
@@ -96,11 +82,27 @@ class Flow(NetworkStructure):
         self.outflows.append(self)
 
 
-class Origin(NetworkStructure):
+class NodeStructure(NetworkStructure):
+    @type_enforced.Enforcer
+    def add_inflow(self, obj: [Flow]):
+        if obj.is_reflow:
+            self.reflows_in.append(obj)
+        else:
+            self.inflows.append(obj)
+
+    @type_enforced.Enforcer
+    def add_outflow(self, obj: [Flow]):
+        if obj.is_reflow:
+            self.reflows_out.append(obj)
+        else:
+            self.outflows.append(obj)
+
+
+class Origin(NodeStructure):
     pass
 
 
-class Node(NetworkStructure):
+class Node(NodeStructure):
     def __init__(self, *args, is_origin=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.is_origin = is_origin
@@ -113,7 +115,7 @@ class Node(NetworkStructure):
         )
 
 
-class Demand(NetworkStructure):
+class Demand(NodeStructure):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Create a link from inflows to outflows to allow general
@@ -182,9 +184,17 @@ class Model(utils.error):
         end_entity = self.objects.get(end)
         if end_entity == None:
             self.exception(f"`end` entity not found in model for input: `{end}`")
-        self.add_flow_with_entities(start_entity=start_entity, end_entity=end_entity, *args, **kwargs)
+        self.add_flow_with_entities(
+            start_entity=start_entity, end_entity=end_entity, *args, **kwargs
+        )
 
-    def add_flow_with_entities(self, start_entity: [Origin, Node, Demand], end_entity: [Origin, Node, Demand], *args, **kwargs):
+    def add_flow_with_entities(
+        self,
+        start_entity: [Origin, Node, Demand],
+        end_entity: [Origin, Node, Demand],
+        *args,
+        **kwargs,
+    ):
         flow = Flow(*args, **kwargs)
         self.add_object(flow)
         start_entity.add_outflow(flow)
