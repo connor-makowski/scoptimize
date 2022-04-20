@@ -6,7 +6,14 @@ from .utils import Large_M
 
 class NetworkStructure(utils.error):
     @type_enforced.Enforcer
-    def __init__(self, name: str, cashflow_for_use: [int, float] =0, cashflow_per_unit: [int, float] =0, min_units: [int, float] =0, max_units: [int, float] =0):
+    def __init__(
+        self,
+        name: str,
+        cashflow_for_use: [int, float] = 0,
+        cashflow_per_unit: [int, float] = 0,
+        min_units: [int, float] = 0,
+        max_units: [int, float] = 0,
+    ):
         self.name = name
         self.min_units = min_units
         self.max_units = max_units
@@ -52,13 +59,15 @@ class NetworkStructure(utils.error):
 
 class Flow(NetworkStructure):
     @type_enforced.Enforcer
-    def __init__(self, start: str, end: str, *args, reflow: bool =False, cat: str ="Continuous", **kwargs):
+    def __init__(
+        self, start: str, end: str, *args, reflow: bool = False, cat: str = "Continuous", **kwargs
+    ):
         super().__init__(*args, **kwargs)
-        self.start=start
-        self.end=end
+        self.start = start
+        self.end = end
         self.flow = pulp.LpVariable(name=f"{self.name}", cat=cat)
         self.outflows.append(self)
-        self.reflow=reflow
+        self.reflow = reflow
 
     @type_enforced.Enforcer
     def add_flows(self, objects: dict):
@@ -73,7 +82,7 @@ class Flow(NetworkStructure):
 
     def get_stats(self):
         # Dont recalculate stats for this object if it has already been calculated
-        if hasattr(self, 'stats'):
+        if hasattr(self, "stats"):
             return self.stats
         self.stats = {
             "name": self.name,
@@ -89,20 +98,22 @@ class Flow(NetworkStructure):
         self.stats = {
             **self.stats,
             "variable_cashflow": self.stats["flow"] * self.cashflow_per_unit,
-            "fixed_cashflow": self.stats["use"] * self.cashflow_for_use
+            "fixed_cashflow": self.stats["use"] * self.cashflow_for_use,
         }
         return self.stats
 
 
 class Node(NetworkStructure):
     @type_enforced.Enforcer
-    def __init__(self, *args, origin: bool =False, destination: bool =False, **kwargs):
+    def __init__(self, *args, origin: bool = False, destination: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.origin=origin
-        self.destination=destination
+        self.origin = origin
+        self.destination = destination
 
-        if (origin and destination):
-            self.exception(f"`origin` and `destination` can not both be `true` for any node but are for node `{self.name}`")
+        if origin and destination:
+            self.exception(
+                f"`origin` and `destination` can not both be `true` for any node but are for node `{self.name}`"
+            )
 
         if self.destination:
             # Create a link from inflows to outflows to allow general
@@ -133,7 +144,7 @@ class Node(NetworkStructure):
 
     def get_stats(self):
         # Dont recalculate stats for this object if it has already been calculated
-        if hasattr(self, 'stats'):
+        if hasattr(self, "stats"):
             return self.stats
         self.stats = {
             "name": self.name,
@@ -151,23 +162,23 @@ class Node(NetworkStructure):
         self.stats = {
             **self.stats,
             "variable_cashflow": self.stats["outflows"] * self.cashflow_per_unit,
-            "fixed_cashflow": self.stats["use"] * self.cashflow_for_use
+            "fixed_cashflow": self.stats["use"] * self.cashflow_for_use,
         }
         # Fix the special outflows logic post solve to undo the special
         # logic in self.__init__() above
         if self.destination:
-            self.stats['outflows']=0
+            self.stats["outflows"] = 0
         return self.stats
 
 
 class Model(utils.error):
     @type_enforced.Enforcer
-    def __init__(self, name: str, objects: dict ={}):
+    def __init__(self, name: str, objects: dict = {}):
         self.name = name
         self.objects = objects
 
     @type_enforced.Enforcer
-    def solve(self, pulp_log: bool =False, except_on_infeasible: bool =True):
+    def solve(self, pulp_log: bool = False, except_on_infeasible: bool = True):
         # Create PuLP Model
         self.model = pulp.LpProblem(name=self.name, sense=pulp.LpMaximize)
         # Set objective function
@@ -189,7 +200,7 @@ class Model(utils.error):
         self.objective = self.model.objective.value()
 
     def get_object_stats(self):
-        return { key: value.get_stats() for key, value in self.objects.items() }
+        return {key: value.get_stats() for key, value in self.objects.items()}
 
     @type_enforced.Enforcer
     def add_object(self, obj: [Node, Flow]):
