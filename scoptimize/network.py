@@ -3,9 +3,8 @@ import type_enforced
 from pamda import utils
 from .utils import Large_M
 
-
+@type_enforced.Enforcer
 class NetworkStructure(utils.error):
-    @type_enforced.Enforcer
     def __init__(
         self,
         name: str,
@@ -16,6 +15,8 @@ class NetworkStructure(utils.error):
     ):
         self.name = name
         self.min_units = min_units
+        if (max_units == 0 and min_units>0):
+            max_units = min_units
         self.max_units = max_units
         if min_units > max_units:
             self.warn(
@@ -32,11 +33,9 @@ class NetworkStructure(utils.error):
         self.reflows_in = []
         self.reflows_out = []
 
-    @type_enforced.Enforcer
     def sum_flows(self, flow_list: list):
         return sum([i.flow.value() for i in flow_list])
 
-    @type_enforced.Enforcer
     def lp_sum_flows(self, flow_list: list):
         return pulp.lpSum([i.flow for i in flow_list])
 
@@ -56,9 +55,8 @@ class NetworkStructure(utils.error):
             fixed_cashflow = 0
         return variable_cashflow + fixed_cashflow
 
-
+@type_enforced.Enforcer
 class Flow(NetworkStructure):
-    @type_enforced.Enforcer
     def __init__(
         self, start: str, end: str, *args, reflow: bool = False, cat: str = "Continuous", **kwargs
     ):
@@ -69,7 +67,6 @@ class Flow(NetworkStructure):
         self.outflows.append(self)
         self.reflow = reflow
 
-    @type_enforced.Enforcer
     def add_flows(self, objects: dict):
         start_entity = objects.get(self.start)
         if start_entity == None:
@@ -102,9 +99,8 @@ class Flow(NetworkStructure):
         }
         return self.stats
 
-
+@type_enforced.Enforcer
 class Node(NetworkStructure):
-    @type_enforced.Enforcer
     def __init__(self, *args, origin: bool = False, destination: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         self.origin = origin
@@ -128,14 +124,12 @@ class Node(NetworkStructure):
                 self.lp_sum_flows(self.outflows) + self.lp_sum_flows(self.reflows_out)
             )
 
-    @type_enforced.Enforcer
     def add_inflow(self, obj: Flow):
         if obj.reflow:
             self.reflows_in.append(obj)
         else:
             self.inflows.append(obj)
 
-    @type_enforced.Enforcer
     def add_outflow(self, obj: Flow):
         if obj.reflow:
             self.reflows_out.append(obj)
@@ -170,14 +164,12 @@ class Node(NetworkStructure):
             self.stats["outflows"] = 0
         return self.stats
 
-
+@type_enforced.Enforcer
 class Model(utils.error):
-    @type_enforced.Enforcer
     def __init__(self, name: str, objects: dict = {}):
         self.name = name
         self.objects = objects
 
-    @type_enforced.Enforcer
     def solve(self, pulp_log: bool = False, except_on_infeasible: bool = True):
         # Create PuLP Model
         self.model = pulp.LpProblem(name=self.name, sense=pulp.LpMaximize)
@@ -202,7 +194,6 @@ class Model(utils.error):
     def get_object_stats(self):
         return {key: value.get_stats() for key, value in self.objects.items()}
 
-    @type_enforced.Enforcer
     def add_object(self, obj: [Node, Flow]):
         if obj.name in self.objects.keys():
             self.exception(f"Duplicate name detected: `{obj.name}`")
