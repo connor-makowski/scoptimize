@@ -3,7 +3,7 @@ from scoptimize.network import Model, Node, Flow
 model = Model(name='MyModel')
 
 # Time Period 1
-model.add_object(Node(name="F1_T1", cashflow_per_unit='-1.5', max_units=15, origin=True))
+model.add_object(Node(name="F1_T1", cashflow_per_unit=-1.5, max_units=15, origin=True))
 model.add_object(Node(name="W1_T1", cashflow_per_unit=-1, max_units=10))
 model.add_object(Node(name="D1_T1", cashflow_per_unit=100, max_units=10, destination=True))
 model.add_object(Flow(name="F1_T1__W1_T1", cashflow_per_unit=-1, max_units=15, start='F1_T1', end='W1_T1'))
