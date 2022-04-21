@@ -3,6 +3,7 @@ import type_enforced
 from pamda import utils
 from .utils import Large_M
 
+
 @type_enforced.Enforcer
 class NetworkStructure(utils.error):
     def __init__(
@@ -15,7 +16,7 @@ class NetworkStructure(utils.error):
     ):
         self.name = name
         self.min_units = min_units
-        if (max_units == 0 and min_units>0):
+        if max_units == 0 and min_units > 0:
             max_units = min_units
         self.max_units = max_units
         if min_units > max_units:
@@ -54,6 +55,7 @@ class NetworkStructure(utils.error):
         else:
             fixed_cashflow = 0
         return variable_cashflow + fixed_cashflow
+
 
 @type_enforced.Enforcer
 class Flow(NetworkStructure):
@@ -98,6 +100,7 @@ class Flow(NetworkStructure):
             "fixed_cashflow": self.stats["use"] * self.cashflow_for_use,
         }
         return self.stats
+
 
 @type_enforced.Enforcer
 class Node(NetworkStructure):
@@ -163,6 +166,7 @@ class Node(NetworkStructure):
         if self.destination:
             self.stats["outflows"] = 0
         return self.stats
+
 
 @type_enforced.Enforcer
 class Model(utils.error):
