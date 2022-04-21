@@ -1,3 +1,3 @@
-pdoc scnd/ --force --html -o docs
-mv ./docs/scnd/* ./docs
-rm -r ./docs/scnd
+pdoc scoptimize/ --force --html -o docs
+mv ./docs/scoptimize/* ./docs
+rm -r ./docs/scoptimize
