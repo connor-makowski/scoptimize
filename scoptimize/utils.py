@@ -2,6 +2,7 @@ import sys
 
 large_m = 10**16
 
+
 class Error:
     def warn(self, message, depth=0):
         """
@@ -23,7 +24,9 @@ class Error:
             - Note: Depth starts at 0 (indicating the current method in the stack)
             - Default: 0
         """
-        print(f"(Warning for `{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}")
+        print(
+            f"(Warning for `{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}"
+        )
 
     def exception(self, message, depth=0):
         """
@@ -41,4 +44,6 @@ class Error:
             - Note: Depth starts at 0 (indicating the current method in the stack)
             - Default: 0
         """
-        raise Exception(f"(`{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}")
+        raise Exception(
+            f"(`{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}"
+        )

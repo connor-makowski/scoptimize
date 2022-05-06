@@ -169,7 +169,9 @@ class Node(NetworkStructure):
 
 @type_enforced.Enforcer
 class Model(Error):
-    def __init__(self, name: str, objects: dict = {}):
+    def __init__(self, name: str, objects: [dict, type(None)] = None):
+        if objects == None:
+            objects = {}
         self.name = name
         self.objects = objects
 

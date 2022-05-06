@@ -30,6 +30,7 @@
 
 large_m = 10**16
 
+
 class Error:
     def warn(self, message, depth=0):
         &#34;&#34;&#34;
@@ -51,7 +52,9 @@ class Error:
             - Note: Depth starts at 0 (indicating the current method in the stack)
             - Default: 0
         &#34;&#34;&#34;
-        print(f&#34;(Warning for `{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;)
+        print(
+            f&#34;(Warning for `{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;
+        )
 
     def exception(self, message, depth=0):
         &#34;&#34;&#34;
@@ -69,7 +72,9 @@ class Error:
             - Note: Depth starts at 0 (indicating the current method in the stack)
             - Default: 0
         &#34;&#34;&#34;
-        raise Exception(f&#34;(`{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;)</code></pre>
+        raise Exception(
+            f&#34;(`{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;
+        )</code></pre>
 </details>
 </section>
 <section>
@@ -111,7 +116,9 @@ class Error:
             - Note: Depth starts at 0 (indicating the current method in the stack)
             - Default: 0
         &#34;&#34;&#34;
-        print(f&#34;(Warning for `{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;)
+        print(
+            f&#34;(Warning for `{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;
+        )
 
     def exception(self, message, depth=0):
         &#34;&#34;&#34;
@@ -129,7 +136,9 @@ class Error:
             - Note: Depth starts at 0 (indicating the current method in the stack)
             - Default: 0
         &#34;&#34;&#34;
-        raise Exception(f&#34;(`{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;)</code></pre>
+        raise Exception(
+            f&#34;(`{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;
+        )</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -178,7 +187,9 @@ Optional:</p>
         - Note: Depth starts at 0 (indicating the current method in the stack)
         - Default: 0
     &#34;&#34;&#34;
-    raise Exception(f&#34;(`{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;)</code></pre>
+    raise Exception(
+        f&#34;(`{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;
+    )</code></pre>
 </details>
 </dd>
 <dt id="scoptimize.utils.Error.warn"><code class="name flex">
@@ -231,7 +242,9 @@ Optional:</p>
         - Note: Depth starts at 0 (indicating the current method in the stack)
         - Default: 0
     &#34;&#34;&#34;
-    print(f&#34;(Warning for `{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;)</code></pre>
+    print(
+        f&#34;(Warning for `{self.__class__.__name__}.{sys._getframe(depth).f_back.f_code.co_name}`): {message}&#34;
+    )</code></pre>
 </details>
 </dd>
 </dl>
