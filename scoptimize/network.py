@@ -1,11 +1,10 @@
 import pulp
 import type_enforced
-from pamda import utils
-from .utils import Large_M
+from .utils import large_m, Error
 
 
 @type_enforced.Enforcer
-class NetworkStructure(utils.error):
+class NetworkStructure(Error):
     def __init__(
         self,
         name: str,
@@ -46,7 +45,7 @@ class NetworkStructure(utils.error):
         model += self.lp_sum_flows(self.outflows) >= self.min_units
         # Enforce binary open constraint if cashflow_for_use is not 0
         if self.cashflow_for_use != 0:
-            model += self.lp_sum_flows(self.outflows) <= Large_M * self.use
+            model += self.lp_sum_flows(self.outflows) <= large_m * self.use
 
     def get_objective_fn(self):
         variable_cashflow = self.lp_sum_flows(self.outflows) * self.cashflow_per_unit
@@ -169,7 +168,7 @@ class Node(NetworkStructure):
 
 
 @type_enforced.Enforcer
-class Model(utils.error):
+class Model(Error):
     def __init__(self, name: str, objects: dict = {}):
         self.name = name
         self.objects = objects
