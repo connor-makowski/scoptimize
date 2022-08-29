@@ -21,7 +21,7 @@ model.add_object(Flow(name="W1_T1__W1_T2", cashflow_per_unit=-1, max_units=15, s
 
 model.solve()
 
-# print(model.model)
-print(model.objective)
-from pprint import pp
-pp(model.get_object_stats())
+if model.objective==1907.5:
+    print("test_1.py passed")
+else:
+    print("test_1.py failed")
