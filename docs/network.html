@@ -85,7 +85,7 @@ class NetworkStructure(Error):
 
     def sum_flows(self, flow_list: list):
         &#34;&#34;&#34;
-        Returns the sum of flows in a provided `flow_list` of `Flow` object.
+        Returns the sum of flows in a provided `flow_list` of `Flow` object as a float value.
 
         Requires:
 
@@ -93,7 +93,7 @@ class NetworkStructure(Error):
             - Type: list
             - What: A list of `flow` objects
         &#34;&#34;&#34;
-        return sum([i.flow.value() for i in flow_list])
+        return float(sum([i.flow.value() for i in flow_list]))
 
     def lp_sum_flows(self, flow_list: list):
         &#34;&#34;&#34;
@@ -430,11 +430,41 @@ class Model(Error):
 <dl>
 <dt id="scoptimize.network.Flow"><code class="flex name class">
 <span>class <span class="ident">Flow</span></span>
-<span>(</span><span>**kwargs)</span>
+<span>(</span><span>start: str, end: str, *args, reflow: bool = False, cat: str = 'Continuous', **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
-of the given arguments and keywords.</p></div>
+<div class="desc"><p>Extends the NetworkStructure initialization to initialize a new Flow object.</p>
+<p>Requires:</p>
+<ul>
+<li><code>start</code>:<ul>
+<li>Type: str</li>
+<li>What: The start Node name for this flow</li>
+</ul>
+</li>
+<li><code>end</code>:<ul>
+<li>Type: str</li>
+<li>What: The end Node name for this flow</li>
+</ul>
+</li>
+</ul>
+<p>Optional:</p>
+<ul>
+<li><code>reflow</code>:<ul>
+<li>Type: bool</li>
+<li>What: Indicate if this flow is treated as a reflow</li>
+<li>Default: False</li>
+<li>Note: Reflows do not impact max_units or min_units for attached nodes</li>
+<li>Note: Reflows would normally be used to capture the idea of inventory in a multi time period model</li>
+</ul>
+</li>
+<li><code>cat</code>:<ul>
+<li>Type: str</li>
+<li>What: The type of flow variable to create</li>
+<li>Options: ['Continuous','Binary','Integer']</li>
+<li>Default: Continuous</li>
+</ul>
+</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -526,22 +556,90 @@ class Flow(NetworkStructure):
 <li><a title="scoptimize.network.NetworkStructure" href="#scoptimize.network.NetworkStructure">NetworkStructure</a></li>
 <li><a title="scoptimize.utils.Error" href="utils.html#scoptimize.utils.Error">Error</a></li>
 </ul>
-<h3>Class variables</h3>
+<h3>Methods</h3>
 <dl>
-<dt id="scoptimize.network.Flow.add_flows"><code class="name">var <span class="ident">add_flows</span></code></dt>
+<dt id="scoptimize.network.Flow.add_flows"><code class="name flex">
+<span>def <span class="ident">add_flows</span></span>(<span>self, objects: dict)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Adds this flow object to the <code>start</code> and <code>end</code> nodes for the purpose of calculating node throughput.</p>
+<p>Requires:</p>
+<ul>
+<li><code>objects</code>:<ul>
+<li>Type: dict</li>
+<li>What: An object dictionary (key=Object.name, Value=Object) for all nodes in the current model</li>
+</ul>
+</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add_flows(self, objects: dict):
+    &#34;&#34;&#34;
+    Adds this flow object to the `start` and `end` nodes for the purpose of calculating node throughput.
+
+    Requires:
+
+    - `objects`:
+        - Type: dict
+        - What: An object dictionary (key=Object.name, Value=Object) for all nodes in the current model
+    &#34;&#34;&#34;
+    start_entity = objects.get(self.start)
+    if start_entity == None:
+        self.exception(f&#34;`start` entity not found in current objects list: `{start}`&#34;)
+    end_entity = objects.get(self.end)
+    if end_entity == None:
+        self.exception(f&#34;`end` entity not found in current objects list: `{end}`&#34;)
+    start_entity.add_outflow(self)
+    end_entity.add_inflow(self)</code></pre>
+</details>
 </dd>
-<dt id="scoptimize.network.Flow.get_stats"><code class="name">var <span class="ident">get_stats</span></code></dt>
+<dt id="scoptimize.network.Flow.get_stats"><code class="name flex">
+<span>def <span class="ident">get_stats</span></span>(<span>self)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get the stats relevant to this flow object</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_stats(self):
+    &#34;&#34;&#34;
+    Get the stats relevant to this flow object
+    &#34;&#34;&#34;
+    # Dont recalculate stats for this object if it has already been calculated
+    if hasattr(self, &#34;stats&#34;):
+        return self.stats
+    self.stats = {
+        &#34;name&#34;: self.name,
+        &#34;class&#34;: self.__class__.__name__,
+        &#34;reflow&#34;: self.reflow,
+        &#34;start&#34;: self.start,
+        &#34;end&#34;: self.end,
+        &#34;flow&#34;: self.sum_flows(self.outflows),
+        &#34;use&#34;: 1.0,
+    }
+    if self.cashflow_for_use != 0:
+        self.stats[&#34;use&#34;] = self.use.value()
+    self.stats = {
+        **self.stats,
+        &#34;variable_cashflow&#34;: self.stats[&#34;flow&#34;] * self.cashflow_per_unit,
+        &#34;fixed_cashflow&#34;: self.stats[&#34;use&#34;] * self.cashflow_for_use,
+    }
+    return self.stats</code></pre>
+</details>
 </dd>
 </dl>
 <h3>Inherited members</h3>
 <ul class="hlist">
 <li><code><b><a title="scoptimize.network.NetworkStructure" href="#scoptimize.network.NetworkStructure">NetworkStructure</a></b></code>:
 <ul class="hlist">
+<li><code><a title="scoptimize.network.NetworkStructure.add_constraints" href="#scoptimize.network.NetworkStructure.add_constraints">add_constraints</a></code></li>
 <li><code><a title="scoptimize.network.NetworkStructure.exception" href="utils.html#scoptimize.utils.Error.exception">exception</a></code></li>
+<li><code><a title="scoptimize.network.NetworkStructure.get_objective_fn" href="#scoptimize.network.NetworkStructure.get_objective_fn">get_objective_fn</a></code></li>
+<li><code><a title="scoptimize.network.NetworkStructure.lp_sum_flows" href="#scoptimize.network.NetworkStructure.lp_sum_flows">lp_sum_flows</a></code></li>
+<li><code><a title="scoptimize.network.NetworkStructure.sum_flows" href="#scoptimize.network.NetworkStructure.sum_flows">sum_flows</a></code></li>
 <li><code><a title="scoptimize.network.NetworkStructure.warn" href="utils.html#scoptimize.utils.Error.warn">warn</a></code></li>
 </ul>
 </li>
@@ -549,11 +647,28 @@ class Flow(NetworkStructure):
 </dd>
 <dt id="scoptimize.network.Model"><code class="flex name class">
 <span>class <span class="ident">Model</span></span>
-<span>(</span><span>**kwargs)</span>
+<span>(</span><span>name: str, objects: [<class 'dict'>, <class 'NoneType'>] = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
-of the given arguments and keywords.</p></div>
+<div class="desc"><p>Initialize a new model object to be solved</p>
+<p>Requires:</p>
+<ul>
+<li><code>name</code>:<ul>
+<li>Type: str</li>
+<li>What: The name of this model object</li>
+</ul>
+</li>
+</ul>
+<p>Optional:</p>
+<ul>
+<li><code>objects</code>:<ul>
+<li>Type: dict</li>
+<li>What: A dictionary that contains any pre aggregated <code><a title="scoptimize.network.Node" href="#scoptimize.network.Node">Node</a></code>s or <code><a title="scoptimize.network.Flow" href="#scoptimize.network.Flow">Flow</a></code>s.</li>
+<li>Note: This should normally only be used for internal testing. Unless you need to custom functionaility, use the Model.add_object function instead of this.</li>
+<li>Default: {}</li>
+</ul>
+</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -645,19 +760,119 @@ class Model(Error):
 <ul class="hlist">
 <li><a title="scoptimize.utils.Error" href="utils.html#scoptimize.utils.Error">Error</a></li>
 </ul>
-<h3>Class variables</h3>
+<h3>Methods</h3>
 <dl>
-<dt id="scoptimize.network.Model.add_object"><code class="name">var <span class="ident">add_object</span></code></dt>
+<dt id="scoptimize.network.Model.add_object"><code class="name flex">
+<span>def <span class="ident">add_object</span></span>(<span>self, obj: [<class '<a title="scoptimize.network.Node" href="#scoptimize.network.Node">Node</a>'>, <class '<a title="scoptimize.network.Flow" href="#scoptimize.network.Flow">Flow</a>'>])</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Adds a <code><a title="scoptimize.network.Node" href="#scoptimize.network.Node">Node</a></code> or <code><a title="scoptimize.network.Flow" href="#scoptimize.network.Flow">Flow</a></code> to this model</p>
+<p>Requires:</p>
+<ul>
+<li><code>obj</code>:<ul>
+<li>Type: Flow object | Node object</li>
+<li>What: A <code><a title="scoptimize.network.Node" href="#scoptimize.network.Node">Node</a></code> or <code><a title="scoptimize.network.Flow" href="#scoptimize.network.Flow">Flow</a></code> to be added to this model</li>
+</ul>
+</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add_object(self, obj: [Node, Flow]):
+    &#34;&#34;&#34;
+    Adds a `Node` or `Flow` to this model
+
+    Requires:
+
+    - `obj`:
+        - Type: Flow object | Node object
+        - What: A `Node` or `Flow` to be added to this model
+    &#34;&#34;&#34;
+    if obj.name in self.objects.keys():
+        self.exception(f&#34;Duplicate name detected: `{obj.name}`&#34;)
+    if isinstance(obj, (Flow)):
+        obj.add_flows(self.objects)
+    self.objects[obj.name] = obj</code></pre>
+</details>
 </dd>
-<dt id="scoptimize.network.Model.get_object_stats"><code class="name">var <span class="ident">get_object_stats</span></code></dt>
+<dt id="scoptimize.network.Model.get_object_stats"><code class="name flex">
+<span>def <span class="ident">get_object_stats</span></span>(<span>self)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get the statistics for every <code><a title="scoptimize.network.Node" href="#scoptimize.network.Node">Node</a></code> and <code><a title="scoptimize.network.Flow" href="#scoptimize.network.Flow">Flow</a></code> in this <code><a title="scoptimize.network.Model" href="#scoptimize.network.Model">Model</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_object_stats(self):
+    &#34;&#34;&#34;
+    Get the statistics for every `Node` and `Flow` in this `Model`.
+    &#34;&#34;&#34;
+    return {key: value.get_stats() for key, value in self.objects.items()}</code></pre>
+</details>
 </dd>
-<dt id="scoptimize.network.Model.solve"><code class="name">var <span class="ident">solve</span></code></dt>
+<dt id="scoptimize.network.Model.solve"><code class="name flex">
+<span>def <span class="ident">solve</span></span>(<span>self, pulp_log: bool = False, except_on_infeasible: bool = True)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Solve this model given all of the Nodes and Flows</p>
+<p>Optional:</p>
+<ul>
+<li><code>pulp_log</code>:<ul>
+<li>Type: bool</li>
+<li>What: Indicate if the pulp log should be shown in the terminal</li>
+<li>Default: False</li>
+</ul>
+</li>
+<li><code>except_on_infeasible</code>:<ul>
+<li>Type: bool</li>
+<li>What: Indicate if the model should throw an exception if it is infeasible</li>
+<li>Note: If False, the model will relax constraints until a solution is found</li>
+<li>Default: True</li>
+</ul>
+</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def solve(self, pulp_log: bool = False, except_on_infeasible: bool = True):
+    &#34;&#34;&#34;
+    Solve this model given all of the Nodes and Flows
+
+    Optional:
+
+    - `pulp_log`:
+        - Type: bool
+        - What: Indicate if the pulp log should be shown in the terminal
+        - Default: False
+    - `except_on_infeasible`:
+        - Type: bool
+        - What: Indicate if the model should throw an exception if it is infeasible
+        - Note: If False, the model will relax constraints until a solution is found
+        - Default: True
+    &#34;&#34;&#34;
+    # Create PuLP Model
+    self.model = pulp.LpProblem(name=self.name, sense=pulp.LpMaximize)
+    # Set objective function
+    self.model += pulp.lpSum([i.get_objective_fn() for i in self.objects.values()])
+    # Add constraints
+    [i.add_constraints(self.model) for i in self.objects.values()]
+    # Solve the model
+    self.model.solve(pulp.PULP_CBC_CMD(msg=(3 if pulp_log else 0)))
+
+    if self.model.status == -1:
+        if except_on_infeasible:
+            self.exception(&#34;The current model is infeasible and can not be solved.&#34;)
+        else:
+            self.warn(
+                &#34;The current model is infeasible and can not be solved. Constraints have been relaxed to provide a solution anyway.&#34;
+            )
+
+    # Parse the objective value
+    self.objective = self.model.objective.value()</code></pre>
+</details>
 </dd>
 </dl>
 <h3>Inherited members</h3>
@@ -672,11 +887,39 @@ class Model(Error):
 </dd>
 <dt id="scoptimize.network.NetworkStructure"><code class="flex name class">
 <span>class <span class="ident">NetworkStructure</span></span>
-<span>(</span><span>**kwargs)</span>
+<span>(</span><span>name: str, cashflow_for_use: [<class 'int'>, <class 'float'>] = 0, cashflow_per_unit: [<class 'int'>, <class 'float'>] = 0, min_units: [<class 'int'>, <class 'float'>] = 0, max_units: [<class 'int'>, <class 'float'>] = 0)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
-of the given arguments and keywords.</p></div>
+<div class="desc"><p>Initialize a generic network structure object.</p>
+<p>Requires:</p>
+<ul>
+<li><code>name</code>:<ul>
+<li>Type: str</li>
+<li>What: The name of this network object</li>
+</ul>
+</li>
+<li><code>cashflow_for_use</code>:<ul>
+<li>Type: int | float</li>
+<li>What: The fixed cashflow that occurs if a non zero number of units flow through this network structure</li>
+</ul>
+</li>
+<li><code>cashflow_per_unit</code>:<ul>
+<li>Type: int | float</li>
+<li>What: The cashflow that occurs for each unit that flows through this network structure</li>
+</ul>
+</li>
+<li><code>min_units</code>:<ul>
+<li>Type: int | float</li>
+<li>What: The minimum units that must flow through this network structure</li>
+</ul>
+</li>
+<li><code>max_units</code>:<ul>
+<li>Type: int | float</li>
+<li>What: The maximum units that must flow through this network structure</li>
+<li>Note: <code>max_units</code> must be larger than <code>min_units</code></li>
+</ul>
+</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -735,7 +978,7 @@ class NetworkStructure(Error):
 
     def sum_flows(self, flow_list: list):
         &#34;&#34;&#34;
-        Returns the sum of flows in a provided `flow_list` of `Flow` object.
+        Returns the sum of flows in a provided `flow_list` of `Flow` object as a float value.
 
         Requires:
 
@@ -743,7 +986,7 @@ class NetworkStructure(Error):
             - Type: list
             - What: A list of `flow` objects
         &#34;&#34;&#34;
-        return sum([i.flow.value() for i in flow_list])
+        return float(sum([i.flow.value() for i in flow_list]))
 
     def lp_sum_flows(self, flow_list: list):
         &#34;&#34;&#34;
@@ -794,23 +1037,123 @@ class NetworkStructure(Error):
 <li><a title="scoptimize.network.Flow" href="#scoptimize.network.Flow">Flow</a></li>
 <li><a title="scoptimize.network.Node" href="#scoptimize.network.Node">Node</a></li>
 </ul>
-<h3>Class variables</h3>
+<h3>Methods</h3>
 <dl>
-<dt id="scoptimize.network.NetworkStructure.add_constraints"><code class="name">var <span class="ident">add_constraints</span></code></dt>
+<dt id="scoptimize.network.NetworkStructure.add_constraints"><code class="name flex">
+<span>def <span class="ident">add_constraints</span></span>(<span>self, model)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Updates a provided model with all the constraints needed for this network structure</p>
+<p>Requires:</p>
+<ul>
+<li><code>model</code>:<ul>
+<li>Type: Model object</li>
+<li>What: The relevant model object that will get the constraints from this network structure</li>
+</ul>
+</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add_constraints(self, model):
+    &#34;&#34;&#34;
+    Updates a provided model with all the constraints needed for this network structure
+
+    Requires:
+
+    - `model`:
+        - Type: Model object
+        - What: The relevant model object that will get the constraints from this network structure
+    &#34;&#34;&#34;
+    # Enforce max unit constraint
+    model += self.lp_sum_flows(self.outflows) &lt;= self.max_units
+    model += self.lp_sum_flows(self.outflows) &gt;= self.min_units
+    # Enforce binary open constraint if cashflow_for_use is not 0
+    if self.cashflow_for_use != 0:
+        model += self.lp_sum_flows(self.outflows) &lt;= large_m * self.use</code></pre>
+</details>
 </dd>
-<dt id="scoptimize.network.NetworkStructure.get_objective_fn"><code class="name">var <span class="ident">get_objective_fn</span></code></dt>
+<dt id="scoptimize.network.NetworkStructure.get_objective_fn"><code class="name flex">
+<span>def <span class="ident">get_objective_fn</span></span>(<span>self)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Gets the objective function (in pulp variables) for this network structure</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_objective_fn(self):
+    &#34;&#34;&#34;
+    Gets the objective function (in pulp variables) for this network structure
+    &#34;&#34;&#34;
+    variable_cashflow = self.lp_sum_flows(self.outflows) * self.cashflow_per_unit
+    if self.cashflow_for_use != 0:
+        fixed_cashflow = self.use * self.cashflow_for_use
+    else:
+        fixed_cashflow = 0
+    return variable_cashflow + fixed_cashflow</code></pre>
+</details>
 </dd>
-<dt id="scoptimize.network.NetworkStructure.lp_sum_flows"><code class="name">var <span class="ident">lp_sum_flows</span></code></dt>
+<dt id="scoptimize.network.NetworkStructure.lp_sum_flows"><code class="name flex">
+<span>def <span class="ident">lp_sum_flows</span></span>(<span>self, flow_list: list)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns a pulp pulp function to sum of flows in a provided <code>flow_list</code> of <code><a title="scoptimize.network.Flow" href="#scoptimize.network.Flow">Flow</a></code> object.</p>
+<p>Requires:</p>
+<ul>
+<li><code>flow_list</code>:<ul>
+<li>Type: list</li>
+<li>What: A list of flow objects</li>
+</ul>
+</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def lp_sum_flows(self, flow_list: list):
+    &#34;&#34;&#34;
+    Returns a pulp pulp function to sum of flows in a provided `flow_list` of `Flow` object.
+
+    Requires:
+
+    - `flow_list`:
+        - Type: list
+        - What: A list of flow objects
+    &#34;&#34;&#34;
+    return pulp.lpSum([i.flow for i in flow_list])</code></pre>
+</details>
 </dd>
-<dt id="scoptimize.network.NetworkStructure.sum_flows"><code class="name">var <span class="ident">sum_flows</span></code></dt>
+<dt id="scoptimize.network.NetworkStructure.sum_flows"><code class="name flex">
+<span>def <span class="ident">sum_flows</span></span>(<span>self, flow_list: list)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns the sum of flows in a provided <code>flow_list</code> of <code><a title="scoptimize.network.Flow" href="#scoptimize.network.Flow">Flow</a></code> object as a float value.</p>
+<p>Requires:</p>
+<ul>
+<li><code>flow_list</code>:<ul>
+<li>Type: list</li>
+<li>What: A list of <code>flow</code> objects</li>
+</ul>
+</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sum_flows(self, flow_list: list):
+    &#34;&#34;&#34;
+    Returns the sum of flows in a provided `flow_list` of `Flow` object as a float value.
+
+    Requires:
+
+    - `flow_list`:
+        - Type: list
+        - What: A list of `flow` objects
+    &#34;&#34;&#34;
+    return float(sum([i.flow.value() for i in flow_list]))</code></pre>
+</details>
 </dd>
 </dl>
 <h3>Inherited members</h3>
@@ -825,11 +1168,27 @@ class NetworkStructure(Error):
 </dd>
 <dt id="scoptimize.network.Node"><code class="flex name class">
 <span>class <span class="ident">Node</span></span>
-<span>(</span><span>**kwargs)</span>
+<span>(</span><span>*args, origin: bool = False, destination: bool = False, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
-of the given arguments and keywords.</p></div>
+<div class="desc"><p>Extends the NetworkStructure initialization process to initialize a new Node object.</p>
+<p>Optional:</p>
+<ul>
+<li><code>origin</code>:<ul>
+<li>Type: bool</li>
+<li>What: Indicate if this node is an origin</li>
+<li>Default: False</li>
+<li>Note: Origin nodes do not have a preservation of flow constraint added and new flows be started in them them (from nothingness)</li>
+</ul>
+</li>
+<li><code>origin</code>:<ul>
+<li>Type: bool</li>
+<li>What: Indicate if this node is a destination</li>
+<li>Default: False</li>
+<li>Note: Destination nodes do not have a preservation of flow constraint added and flows can be terminated in them (into nothingness)</li>
+</ul>
+</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -954,23 +1313,155 @@ class Node(NetworkStructure):
 <li><a title="scoptimize.network.NetworkStructure" href="#scoptimize.network.NetworkStructure">NetworkStructure</a></li>
 <li><a title="scoptimize.utils.Error" href="utils.html#scoptimize.utils.Error">Error</a></li>
 </ul>
-<h3>Class variables</h3>
+<h3>Methods</h3>
 <dl>
-<dt id="scoptimize.network.Node.add_constraints"><code class="name">var <span class="ident">add_constraints</span></code></dt>
+<dt id="scoptimize.network.Node.add_constraints"><code class="name flex">
+<span>def <span class="ident">add_constraints</span></span>(<span>self, model)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Extends the add_constraints function in NetworkStructure to include preservation of flow to the passed model.</p>
+<p>This only applies if the this node is not an <code>origin</code> or <code>destination</code> node.</p>
+<p>Preservation of flow fn: <code>inflows + reflows_in = outflows + reflows_out</code></p>
+<p>Requires:</p>
+<ul>
+<li><code>model</code>:<ul>
+<li>Type: Model object</li>
+<li>What: The relevant model object that will get the constraints from this network structure</li>
+</ul>
+</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add_constraints(self, model):
+    &#34;&#34;&#34;
+    Extends the add_constraints function in NetworkStructure to include preservation of flow to the passed model.
+
+    This only applies if the this node is not an `origin` or `destination` node.
+
+    Preservation of flow fn: `inflows + reflows_in = outflows + reflows_out`
+
+    Requires:
+
+    - `model`:
+        - Type: Model object
+        - What: The relevant model object that will get the constraints from this network structure
+    &#34;&#34;&#34;
+    super().add_constraints(model)
+    if not (self.origin or self.destination):
+        # Balance Inflows + Reflows_In with Outflows + Reflows_Out
+        model += (self.lp_sum_flows(self.inflows) + self.lp_sum_flows(self.reflows_in)) == (
+            self.lp_sum_flows(self.outflows) + self.lp_sum_flows(self.reflows_out)
+        )</code></pre>
+</details>
 </dd>
-<dt id="scoptimize.network.Node.add_inflow"><code class="name">var <span class="ident">add_inflow</span></code></dt>
+<dt id="scoptimize.network.Node.add_inflow"><code class="name flex">
+<span>def <span class="ident">add_inflow</span></span>(<span>self, obj: <a title="scoptimize.network.Flow" href="#scoptimize.network.Flow">Flow</a>)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Adds an inflow to this node</p>
+<p>Requires:</p>
+<ul>
+<li><code>obj</code>:<ul>
+<li>Type: Flow object</li>
+<li>What: A flow that is entering this node</li>
+</ul>
+</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add_inflow(self, obj: Flow):
+    &#34;&#34;&#34;
+    Adds an inflow to this node
+
+    Requires:
+
+    - `obj`:
+        - Type: Flow object
+        - What: A flow that is entering this node
+    &#34;&#34;&#34;
+    if obj.reflow:
+        self.reflows_in.append(obj)
+    else:
+        self.inflows.append(obj)</code></pre>
+</details>
 </dd>
-<dt id="scoptimize.network.Node.add_outflow"><code class="name">var <span class="ident">add_outflow</span></code></dt>
+<dt id="scoptimize.network.Node.add_outflow"><code class="name flex">
+<span>def <span class="ident">add_outflow</span></span>(<span>self, obj: <a title="scoptimize.network.Flow" href="#scoptimize.network.Flow">Flow</a>)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Adds an outflow to this node</p>
+<p>Requires:</p>
+<ul>
+<li><code>obj</code>:<ul>
+<li>Type: Flow object</li>
+<li>What: A flow that is leaving this node</li>
+</ul>
+</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add_outflow(self, obj: Flow):
+    &#34;&#34;&#34;
+    Adds an outflow to this node
+
+    Requires:
+
+    - `obj`:
+        - Type: Flow object
+        - What: A flow that is leaving this node
+    &#34;&#34;&#34;
+    if obj.reflow:
+        self.reflows_out.append(obj)
+    else:
+        self.outflows.append(obj)</code></pre>
+</details>
 </dd>
-<dt id="scoptimize.network.Node.get_stats"><code class="name">var <span class="ident">get_stats</span></code></dt>
+<dt id="scoptimize.network.Node.get_stats"><code class="name flex">
+<span>def <span class="ident">get_stats</span></span>(<span>self)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get the stats relevant to this node object</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_stats(self):
+    &#34;&#34;&#34;
+    Get the stats relevant to this node object
+    &#34;&#34;&#34;
+    # Dont recalculate stats for this object if it has already been calculated
+    if hasattr(self, &#34;stats&#34;):
+        return self.stats
+    self.stats = {
+        &#34;name&#34;: self.name,
+        &#34;class&#34;: self.__class__.__name__,
+        &#34;origin&#34;: self.origin,
+        &#34;destination&#34;: self.destination,
+        &#34;inflows&#34;: self.sum_flows(self.inflows),
+        &#34;outflows&#34;: self.sum_flows(self.outflows),
+        &#34;reflows_in&#34;: self.sum_flows(self.reflows_in),
+        &#34;reflows_out&#34;: self.sum_flows(self.reflows_out),
+        &#34;use&#34;: 1.0,
+    }
+    if self.cashflow_for_use != 0:
+        self.stats[&#34;use&#34;] = self.use.value()
+    self.stats = {
+        **self.stats,
+        &#34;variable_cashflow&#34;: self.stats[&#34;outflows&#34;] * self.cashflow_per_unit,
+        &#34;fixed_cashflow&#34;: self.stats[&#34;use&#34;] * self.cashflow_for_use,
+    }
+    # Fix the special outflows logic post solve to undo the special
+    # logic in self.__init__() above
+    if self.destination:
+        self.stats[&#34;outflows&#34;] = 0
+    return self.stats</code></pre>
+</details>
 </dd>
 </dl>
 <h3>Inherited members</h3>
@@ -978,6 +1469,9 @@ class Node(NetworkStructure):
 <li><code><b><a title="scoptimize.network.NetworkStructure" href="#scoptimize.network.NetworkStructure">NetworkStructure</a></b></code>:
 <ul class="hlist">
 <li><code><a title="scoptimize.network.NetworkStructure.exception" href="utils.html#scoptimize.utils.Error.exception">exception</a></code></li>
+<li><code><a title="scoptimize.network.NetworkStructure.get_objective_fn" href="#scoptimize.network.NetworkStructure.get_objective_fn">get_objective_fn</a></code></li>
+<li><code><a title="scoptimize.network.NetworkStructure.lp_sum_flows" href="#scoptimize.network.NetworkStructure.lp_sum_flows">lp_sum_flows</a></code></li>
+<li><code><a title="scoptimize.network.NetworkStructure.sum_flows" href="#scoptimize.network.NetworkStructure.sum_flows">sum_flows</a></code></li>
 <li><code><a title="scoptimize.network.NetworkStructure.warn" href="utils.html#scoptimize.utils.Error.warn">warn</a></code></li>
 </ul>
 </li>

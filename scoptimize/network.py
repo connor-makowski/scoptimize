@@ -57,7 +57,7 @@ class NetworkStructure(Error):
 
     def sum_flows(self, flow_list: list):
         """
-        Returns the sum of flows in a provided `flow_list` of `Flow` object.
+        Returns the sum of flows in a provided `flow_list` of `Flow` object as a float value.
 
         Requires:
 
@@ -65,7 +65,7 @@ class NetworkStructure(Error):
             - Type: list
             - What: A list of `flow` objects
         """
-        return sum([i.flow.value() for i in flow_list])
+        return float(sum([i.flow.value() for i in flow_list]))
 
     def lp_sum_flows(self, flow_list: list):
         """
