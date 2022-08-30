@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 setup(
   name = 'scoptimize',
   packages = ['scoptimize'],
-  version = '0.0.4',
+  version = '0.0.5',
   license='MIT',
   description = 'Supply Chain Optimization Package',
   long_description=long_description,
