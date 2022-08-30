@@ -246,18 +246,39 @@ class Node(NetworkStructure):
             )
 
     def add_inflow(self, obj: Flow):
+        """
+        Adds an inflow to this node
+
+        Requires:
+
+        - `obj`:
+            - Type: Flow object
+            - What: A flow that is entering this node
+        """
         if obj.reflow:
             self.reflows_in.append(obj)
         else:
             self.inflows.append(obj)
 
     def add_outflow(self, obj: Flow):
+        """
+        Adds an outflow to this node
+
+        Requires:
+
+        - `obj`:
+            - Type: Flow object
+            - What: A flow that is leaving this node
+        """
         if obj.reflow:
             self.reflows_out.append(obj)
         else:
             self.outflows.append(obj)
 
     def get_stats(self):
+        """
+        Get the stats relevant to this node object
+        """
         # Dont recalculate stats for this object if it has already been calculated
         if hasattr(self, "stats"):
             return self.stats
@@ -289,12 +310,44 @@ class Node(NetworkStructure):
 @type_enforced.Enforcer
 class Model(Error):
     def __init__(self, name: str, objects: [dict, type(None)] = None):
+        """
+        Initialize a new model object to be solved
+
+        Requires:
+
+        - `name`:
+            - Type: str
+            - What: The name of this model object
+
+        Optional:
+
+        - `objects`:
+            - Type: dict
+            - What: A dictionary that contains any pre aggregated `Node`s or `Flow`s.
+            - Note: This should normally only be used for internal testing. Unless you need to custom functionaility, use the Model.add_object function instead of this.
+            - Default: {}
+        """
         if objects == None:
             objects = {}
         self.name = name
         self.objects = objects
 
     def solve(self, pulp_log: bool = False, except_on_infeasible: bool = True):
+        """
+        Solve this model given all of the Nodes and Flows
+
+        Optional:
+
+        - `pulp_log`:
+            - Type: bool
+            - What: Indicate if the pulp log should be shown in the terminal
+            - Default: False
+        - `except_on_infeasible`:
+            - Type: bool
+            - What: Indicate if the model should throw an exception if it is infeasible
+            - Note: If False, the model will relax constraints until a solution is found
+            - Default: True
+        """
         # Create PuLP Model
         self.model = pulp.LpProblem(name=self.name, sense=pulp.LpMaximize)
         # Set objective function
@@ -316,9 +369,21 @@ class Model(Error):
         self.objective = self.model.objective.value()
 
     def get_object_stats(self):
+        """
+        Get the statistics for every `Node` and `Flow` in this `Model`.
+        """
         return {key: value.get_stats() for key, value in self.objects.items()}
 
     def add_object(self, obj: [Node, Flow]):
+        """
+        Adds a `Node` or `Flow` to this model
+
+        Requires:
+
+        - `obj`:
+            - Type: Flow object | Node object
+            - What: A `Node` or `Flow` to be added to this model
+        """
         if obj.name in self.objects.keys():
             self.exception(f"Duplicate name detected: `{obj.name}`")
         if isinstance(obj, (Flow)):

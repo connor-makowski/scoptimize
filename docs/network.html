@@ -41,6 +41,28 @@ class NetworkStructure(Error):
         min_units: [int, float] = 0,
         max_units: [int, float] = 0,
     ):
+        &#34;&#34;&#34;
+        Initialize a generic network structure object.
+
+        Requires:
+
+        - `name`:
+            - Type: str
+            - What: The name of this network object
+        - `cashflow_for_use`:
+            - Type: int | float
+            - What: The fixed cashflow that occurs if a non zero number of units flow through this network structure
+        - `cashflow_per_unit`:
+            - Type: int | float
+            - What: The cashflow that occurs for each unit that flows through this network structure
+        - `min_units`:
+            - Type: int | float
+            - What: The minimum units that must flow through this network structure
+        - `max_units`:
+            - Type: int | float
+            - What: The maximum units that must flow through this network structure
+            - Note: `max_units` must be larger than `min_units`
+        &#34;&#34;&#34;
         self.name = name
         self.min_units = min_units
         if max_units == 0 and min_units &gt; 0:
@@ -62,12 +84,39 @@ class NetworkStructure(Error):
         self.reflows_out = []
 
     def sum_flows(self, flow_list: list):
+        &#34;&#34;&#34;
+        Returns the sum of flows in a provided `flow_list` of `Flow` object.
+
+        Requires:
+
+        - `flow_list`:
+            - Type: list
+            - What: A list of `flow` objects
+        &#34;&#34;&#34;
         return sum([i.flow.value() for i in flow_list])
 
     def lp_sum_flows(self, flow_list: list):
+        &#34;&#34;&#34;
+        Returns a pulp pulp function to sum of flows in a provided `flow_list` of `Flow` object.
+
+        Requires:
+
+        - `flow_list`:
+            - Type: list
+            - What: A list of flow objects
+        &#34;&#34;&#34;
         return pulp.lpSum([i.flow for i in flow_list])
 
     def add_constraints(self, model):
+        &#34;&#34;&#34;
+        Updates a provided model with all the constraints needed for this network structure
+
+        Requires:
+
+        - `model`:
+            - Type: Model object
+            - What: The relevant model object that will get the constraints from this network structure
+        &#34;&#34;&#34;
         # Enforce max unit constraint
         model += self.lp_sum_flows(self.outflows) &lt;= self.max_units
         model += self.lp_sum_flows(self.outflows) &gt;= self.min_units
@@ -76,6 +125,9 @@ class NetworkStructure(Error):
             model += self.lp_sum_flows(self.outflows) &lt;= large_m * self.use
 
     def get_objective_fn(self):
+        &#34;&#34;&#34;
+        Gets the objective function (in pulp variables) for this network structure
+        &#34;&#34;&#34;
         variable_cashflow = self.lp_sum_flows(self.outflows) * self.cashflow_per_unit
         if self.cashflow_for_use != 0:
             fixed_cashflow = self.use * self.cashflow_for_use
@@ -89,6 +141,32 @@ class Flow(NetworkStructure):
     def __init__(
         self, start: str, end: str, *args, reflow: bool = False, cat: str = &#34;Continuous&#34;, **kwargs
     ):
+        &#34;&#34;&#34;
+        Extends the NetworkStructure initialization to initialize a new Flow object.
+
+        Requires:
+
+        - `start`:
+            - Type: str
+            - What: The start Node name for this flow
+        - `end`:
+            - Type: str
+            - What: The end Node name for this flow
+
+        Optional:
+
+        - `reflow`:
+            - Type: bool
+            - What: Indicate if this flow is treated as a reflow
+            - Default: False
+            - Note: Reflows do not impact max_units or min_units for attached nodes
+            - Note: Reflows would normally be used to capture the idea of inventory in a multi time period model
+        -  `cat`:
+            - Type: str
+            - What: The type of flow variable to create
+            - Options: [&#39;Continuous&#39;,&#39;Binary&#39;,&#39;Integer&#39;]
+            - Default: Continuous
+        &#34;&#34;&#34;
         super().__init__(*args, **kwargs)
         self.start = start
         self.end = end
@@ -97,6 +175,15 @@ class Flow(NetworkStructure):
         self.reflow = reflow
 
     def add_flows(self, objects: dict):
+        &#34;&#34;&#34;
+        Adds this flow object to the `start` and `end` nodes for the purpose of calculating node throughput.
+
+        Requires:
+
+        - `objects`:
+            - Type: dict
+            - What: An object dictionary (key=Object.name, Value=Object) for all nodes in the current model
+        &#34;&#34;&#34;
         start_entity = objects.get(self.start)
         if start_entity == None:
             self.exception(f&#34;`start` entity not found in current objects list: `{start}`&#34;)
@@ -107,6 +194,9 @@ class Flow(NetworkStructure):
         end_entity.add_inflow(self)
 
     def get_stats(self):
+        &#34;&#34;&#34;
+        Get the stats relevant to this flow object
+        &#34;&#34;&#34;
         # Dont recalculate stats for this object if it has already been calculated
         if hasattr(self, &#34;stats&#34;):
             return self.stats
@@ -132,6 +222,22 @@ class Flow(NetworkStructure):
 @type_enforced.Enforcer
 class Node(NetworkStructure):
     def __init__(self, *args, origin: bool = False, destination: bool = False, **kwargs):
+        &#34;&#34;&#34;
+        Extends the NetworkStructure initialization process to initialize a new Node object.
+
+        Optional:
+
+        - `origin`:
+            - Type: bool
+            - What: Indicate if this node is an origin
+            - Default: False
+            - Note: Origin nodes do not have a preservation of flow constraint added and new flows be started in them them (from nothingness)
+        - `origin`:
+            - Type: bool
+            - What: Indicate if this node is a destination
+            - Default: False
+            - Note: Destination nodes do not have a preservation of flow constraint added and flows can be terminated in them (into nothingness)
+        &#34;&#34;&#34;
         super().__init__(*args, **kwargs)
         self.origin = origin
         self.destination = destination
@@ -147,6 +253,19 @@ class Node(NetworkStructure):
             self.outflows = self.inflows
 
     def add_constraints(self, model):
+        &#34;&#34;&#34;
+        Extends the add_constraints function in NetworkStructure to include preservation of flow to the passed model.
+
+        This only applies if the this node is not an `origin` or `destination` node.
+
+        Preservation of flow fn: `inflows + reflows_in = outflows + reflows_out`
+
+        Requires:
+
+        - `model`:
+            - Type: Model object
+            - What: The relevant model object that will get the constraints from this network structure
+        &#34;&#34;&#34;
         super().add_constraints(model)
         if not (self.origin or self.destination):
             # Balance Inflows + Reflows_In with Outflows + Reflows_Out
@@ -155,18 +274,39 @@ class Node(NetworkStructure):
             )
 
     def add_inflow(self, obj: Flow):
+        &#34;&#34;&#34;
+        Adds an inflow to this node
+
+        Requires:
+
+        - `obj`:
+            - Type: Flow object
+            - What: A flow that is entering this node
+        &#34;&#34;&#34;
         if obj.reflow:
             self.reflows_in.append(obj)
         else:
             self.inflows.append(obj)
 
     def add_outflow(self, obj: Flow):
+        &#34;&#34;&#34;
+        Adds an outflow to this node
+
+        Requires:
+
+        - `obj`:
+            - Type: Flow object
+            - What: A flow that is leaving this node
+        &#34;&#34;&#34;
         if obj.reflow:
             self.reflows_out.append(obj)
         else:
             self.outflows.append(obj)
 
     def get_stats(self):
+        &#34;&#34;&#34;
+        Get the stats relevant to this node object
+        &#34;&#34;&#34;
         # Dont recalculate stats for this object if it has already been calculated
         if hasattr(self, &#34;stats&#34;):
             return self.stats
@@ -198,12 +338,44 @@ class Node(NetworkStructure):
 @type_enforced.Enforcer
 class Model(Error):
     def __init__(self, name: str, objects: [dict, type(None)] = None):
+        &#34;&#34;&#34;
+        Initialize a new model object to be solved
+
+        Requires:
+
+        - `name`:
+            - Type: str
+            - What: The name of this model object
+
+        Optional:
+
+        - `objects`:
+            - Type: dict
+            - What: A dictionary that contains any pre aggregated `Node`s or `Flow`s.
+            - Note: This should normally only be used for internal testing. Unless you need to custom functionaility, use the Model.add_object function instead of this.
+            - Default: {}
+        &#34;&#34;&#34;
         if objects == None:
             objects = {}
         self.name = name
         self.objects = objects
 
     def solve(self, pulp_log: bool = False, except_on_infeasible: bool = True):
+        &#34;&#34;&#34;
+        Solve this model given all of the Nodes and Flows
+
+        Optional:
+
+        - `pulp_log`:
+            - Type: bool
+            - What: Indicate if the pulp log should be shown in the terminal
+            - Default: False
+        - `except_on_infeasible`:
+            - Type: bool
+            - What: Indicate if the model should throw an exception if it is infeasible
+            - Note: If False, the model will relax constraints until a solution is found
+            - Default: True
+        &#34;&#34;&#34;
         # Create PuLP Model
         self.model = pulp.LpProblem(name=self.name, sense=pulp.LpMaximize)
         # Set objective function
@@ -225,9 +397,21 @@ class Model(Error):
         self.objective = self.model.objective.value()
 
     def get_object_stats(self):
+        &#34;&#34;&#34;
+        Get the statistics for every `Node` and `Flow` in this `Model`.
+        &#34;&#34;&#34;
         return {key: value.get_stats() for key, value in self.objects.items()}
 
     def add_object(self, obj: [Node, Flow]):
+        &#34;&#34;&#34;
+        Adds a `Node` or `Flow` to this model
+
+        Requires:
+
+        - `obj`:
+            - Type: Flow object | Node object
+            - What: A `Node` or `Flow` to be added to this model
+        &#34;&#34;&#34;
         if obj.name in self.objects.keys():
             self.exception(f&#34;Duplicate name detected: `{obj.name}`&#34;)
         if isinstance(obj, (Flow)):
@@ -260,6 +444,32 @@ class Flow(NetworkStructure):
     def __init__(
         self, start: str, end: str, *args, reflow: bool = False, cat: str = &#34;Continuous&#34;, **kwargs
     ):
+        &#34;&#34;&#34;
+        Extends the NetworkStructure initialization to initialize a new Flow object.
+
+        Requires:
+
+        - `start`:
+            - Type: str
+            - What: The start Node name for this flow
+        - `end`:
+            - Type: str
+            - What: The end Node name for this flow
+
+        Optional:
+
+        - `reflow`:
+            - Type: bool
+            - What: Indicate if this flow is treated as a reflow
+            - Default: False
+            - Note: Reflows do not impact max_units or min_units for attached nodes
+            - Note: Reflows would normally be used to capture the idea of inventory in a multi time period model
+        -  `cat`:
+            - Type: str
+            - What: The type of flow variable to create
+            - Options: [&#39;Continuous&#39;,&#39;Binary&#39;,&#39;Integer&#39;]
+            - Default: Continuous
+        &#34;&#34;&#34;
         super().__init__(*args, **kwargs)
         self.start = start
         self.end = end
@@ -268,6 +478,15 @@ class Flow(NetworkStructure):
         self.reflow = reflow
 
     def add_flows(self, objects: dict):
+        &#34;&#34;&#34;
+        Adds this flow object to the `start` and `end` nodes for the purpose of calculating node throughput.
+
+        Requires:
+
+        - `objects`:
+            - Type: dict
+            - What: An object dictionary (key=Object.name, Value=Object) for all nodes in the current model
+        &#34;&#34;&#34;
         start_entity = objects.get(self.start)
         if start_entity == None:
             self.exception(f&#34;`start` entity not found in current objects list: `{start}`&#34;)
@@ -278,6 +497,9 @@ class Flow(NetworkStructure):
         end_entity.add_inflow(self)
 
     def get_stats(self):
+        &#34;&#34;&#34;
+        Get the stats relevant to this flow object
+        &#34;&#34;&#34;
         # Dont recalculate stats for this object if it has already been calculated
         if hasattr(self, &#34;stats&#34;):
             return self.stats
@@ -339,12 +561,44 @@ of the given arguments and keywords.</p></div>
 <pre><code class="python">@type_enforced.Enforcer
 class Model(Error):
     def __init__(self, name: str, objects: [dict, type(None)] = None):
+        &#34;&#34;&#34;
+        Initialize a new model object to be solved
+
+        Requires:
+
+        - `name`:
+            - Type: str
+            - What: The name of this model object
+
+        Optional:
+
+        - `objects`:
+            - Type: dict
+            - What: A dictionary that contains any pre aggregated `Node`s or `Flow`s.
+            - Note: This should normally only be used for internal testing. Unless you need to custom functionaility, use the Model.add_object function instead of this.
+            - Default: {}
+        &#34;&#34;&#34;
         if objects == None:
             objects = {}
         self.name = name
         self.objects = objects
 
     def solve(self, pulp_log: bool = False, except_on_infeasible: bool = True):
+        &#34;&#34;&#34;
+        Solve this model given all of the Nodes and Flows
+
+        Optional:
+
+        - `pulp_log`:
+            - Type: bool
+            - What: Indicate if the pulp log should be shown in the terminal
+            - Default: False
+        - `except_on_infeasible`:
+            - Type: bool
+            - What: Indicate if the model should throw an exception if it is infeasible
+            - Note: If False, the model will relax constraints until a solution is found
+            - Default: True
+        &#34;&#34;&#34;
         # Create PuLP Model
         self.model = pulp.LpProblem(name=self.name, sense=pulp.LpMaximize)
         # Set objective function
@@ -366,9 +620,21 @@ class Model(Error):
         self.objective = self.model.objective.value()
 
     def get_object_stats(self):
+        &#34;&#34;&#34;
+        Get the statistics for every `Node` and `Flow` in this `Model`.
+        &#34;&#34;&#34;
         return {key: value.get_stats() for key, value in self.objects.items()}
 
     def add_object(self, obj: [Node, Flow]):
+        &#34;&#34;&#34;
+        Adds a `Node` or `Flow` to this model
+
+        Requires:
+
+        - `obj`:
+            - Type: Flow object | Node object
+            - What: A `Node` or `Flow` to be added to this model
+        &#34;&#34;&#34;
         if obj.name in self.objects.keys():
             self.exception(f&#34;Duplicate name detected: `{obj.name}`&#34;)
         if isinstance(obj, (Flow)):
@@ -425,6 +691,28 @@ class NetworkStructure(Error):
         min_units: [int, float] = 0,
         max_units: [int, float] = 0,
     ):
+        &#34;&#34;&#34;
+        Initialize a generic network structure object.
+
+        Requires:
+
+        - `name`:
+            - Type: str
+            - What: The name of this network object
+        - `cashflow_for_use`:
+            - Type: int | float
+            - What: The fixed cashflow that occurs if a non zero number of units flow through this network structure
+        - `cashflow_per_unit`:
+            - Type: int | float
+            - What: The cashflow that occurs for each unit that flows through this network structure
+        - `min_units`:
+            - Type: int | float
+            - What: The minimum units that must flow through this network structure
+        - `max_units`:
+            - Type: int | float
+            - What: The maximum units that must flow through this network structure
+            - Note: `max_units` must be larger than `min_units`
+        &#34;&#34;&#34;
         self.name = name
         self.min_units = min_units
         if max_units == 0 and min_units &gt; 0:
@@ -446,12 +734,39 @@ class NetworkStructure(Error):
         self.reflows_out = []
 
     def sum_flows(self, flow_list: list):
+        &#34;&#34;&#34;
+        Returns the sum of flows in a provided `flow_list` of `Flow` object.
+
+        Requires:
+
+        - `flow_list`:
+            - Type: list
+            - What: A list of `flow` objects
+        &#34;&#34;&#34;
         return sum([i.flow.value() for i in flow_list])
 
     def lp_sum_flows(self, flow_list: list):
+        &#34;&#34;&#34;
+        Returns a pulp pulp function to sum of flows in a provided `flow_list` of `Flow` object.
+
+        Requires:
+
+        - `flow_list`:
+            - Type: list
+            - What: A list of flow objects
+        &#34;&#34;&#34;
         return pulp.lpSum([i.flow for i in flow_list])
 
     def add_constraints(self, model):
+        &#34;&#34;&#34;
+        Updates a provided model with all the constraints needed for this network structure
+
+        Requires:
+
+        - `model`:
+            - Type: Model object
+            - What: The relevant model object that will get the constraints from this network structure
+        &#34;&#34;&#34;
         # Enforce max unit constraint
         model += self.lp_sum_flows(self.outflows) &lt;= self.max_units
         model += self.lp_sum_flows(self.outflows) &gt;= self.min_units
@@ -460,6 +775,9 @@ class NetworkStructure(Error):
             model += self.lp_sum_flows(self.outflows) &lt;= large_m * self.use
 
     def get_objective_fn(self):
+        &#34;&#34;&#34;
+        Gets the objective function (in pulp variables) for this network structure
+        &#34;&#34;&#34;
         variable_cashflow = self.lp_sum_flows(self.outflows) * self.cashflow_per_unit
         if self.cashflow_for_use != 0:
             fixed_cashflow = self.use * self.cashflow_for_use
@@ -519,6 +837,22 @@ of the given arguments and keywords.</p></div>
 <pre><code class="python">@type_enforced.Enforcer
 class Node(NetworkStructure):
     def __init__(self, *args, origin: bool = False, destination: bool = False, **kwargs):
+        &#34;&#34;&#34;
+        Extends the NetworkStructure initialization process to initialize a new Node object.
+
+        Optional:
+
+        - `origin`:
+            - Type: bool
+            - What: Indicate if this node is an origin
+            - Default: False
+            - Note: Origin nodes do not have a preservation of flow constraint added and new flows be started in them them (from nothingness)
+        - `origin`:
+            - Type: bool
+            - What: Indicate if this node is a destination
+            - Default: False
+            - Note: Destination nodes do not have a preservation of flow constraint added and flows can be terminated in them (into nothingness)
+        &#34;&#34;&#34;
         super().__init__(*args, **kwargs)
         self.origin = origin
         self.destination = destination
@@ -534,6 +868,19 @@ class Node(NetworkStructure):
             self.outflows = self.inflows
 
     def add_constraints(self, model):
+        &#34;&#34;&#34;
+        Extends the add_constraints function in NetworkStructure to include preservation of flow to the passed model.
+
+        This only applies if the this node is not an `origin` or `destination` node.
+
+        Preservation of flow fn: `inflows + reflows_in = outflows + reflows_out`
+
+        Requires:
+
+        - `model`:
+            - Type: Model object
+            - What: The relevant model object that will get the constraints from this network structure
+        &#34;&#34;&#34;
         super().add_constraints(model)
         if not (self.origin or self.destination):
             # Balance Inflows + Reflows_In with Outflows + Reflows_Out
@@ -542,18 +889,39 @@ class Node(NetworkStructure):
             )
 
     def add_inflow(self, obj: Flow):
+        &#34;&#34;&#34;
+        Adds an inflow to this node
+
+        Requires:
+
+        - `obj`:
+            - Type: Flow object
+            - What: A flow that is entering this node
+        &#34;&#34;&#34;
         if obj.reflow:
             self.reflows_in.append(obj)
         else:
             self.inflows.append(obj)
 
     def add_outflow(self, obj: Flow):
+        &#34;&#34;&#34;
+        Adds an outflow to this node
+
+        Requires:
+
+        - `obj`:
+            - Type: Flow object
+            - What: A flow that is leaving this node
+        &#34;&#34;&#34;
         if obj.reflow:
             self.reflows_out.append(obj)
         else:
             self.outflows.append(obj)
 
     def get_stats(self):
+        &#34;&#34;&#34;
+        Get the stats relevant to this node object
+        &#34;&#34;&#34;
         # Dont recalculate stats for this object if it has already been calculated
         if hasattr(self, &#34;stats&#34;):
             return self.stats
