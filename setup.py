@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 setup(
   name = 'scoptimize',
   packages = ['scoptimize'],
-  version = '0.0.5',
+  version = '0.0.6',
   license='MIT',
   description = 'Supply Chain Optimization Package',
   long_description=long_description,
@@ -17,7 +17,7 @@ setup(
   url = 'https://github.com/connor-makowski/scoptimize',
   download_url = 'https://github.com/connor-makowski/scoptimize/dist/scoptimize-0.0.3.tar.gz',
   keywords = [],
-  install_requires=["PuLP==2.6.0", "type_enforced==0.0.5"],
+  install_requires=["PuLP>=2.7.0", "type_enforced>=0.0.14"],
   classifiers=[
     'Development Status :: 3 - Alpha',
     'Intended Audience :: Developers',
