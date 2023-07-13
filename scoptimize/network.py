@@ -158,10 +158,14 @@ class Flow(NetworkStructure):
         """
         start_entity = objects.get(self.start)
         if start_entity == None:
-            self.exception(f"`start` entity not found in current objects list: `{start}`")
+            self.exception(
+                f"`start` entity ({self.start}) not found in current objects list. Did you forget to add it to your nodes? This should be done prior to adding flows. See the `add_nodes` method."
+            )
         end_entity = objects.get(self.end)
         if end_entity == None:
-            self.exception(f"`end` entity not found in current objects list: `{end}`")
+            self.exception(
+                f"`end` entity ({self.end}) not found in current objects list. Did you forget to add it to your nodes? This should be done prior to adding flows. See the `add_nodes` method."
+            )
         start_entity.add_outflow(self)
         end_entity.add_inflow(self)
 

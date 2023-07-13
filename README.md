@@ -1,13 +1,14 @@
-SC Optimize
-==========
+# SC Optimize
+[![PyPI version](https://badge.fury.io/py/scoptimize.svg)](https://badge.fury.io/py/scoptimize)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Supply Chain Optimization package in python using PuLP.
 
-Setup
-----------
+# Setup
 
 Make sure you have Python 3.6.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/).
 
-### Installation
+## Installation
 
 ```
 pip install scoptimize
