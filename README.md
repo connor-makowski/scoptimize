@@ -128,3 +128,17 @@ Output:
            'variable_cashflow': -8.0,
            'fixed_cashflow': 0.0}}
 ```
+
+# Testing
+
+Docker:
+
+- `docker build . --tag scoptimize_docker_test`
+- `docker run scoptimize_docker_test bash ./test.sh`
+
+Local:
+
+- `python3.11 -m virtualenv venv`
+- `source venv/bin/activate`
+- `pip install -e .`
+- `./test.sh`
