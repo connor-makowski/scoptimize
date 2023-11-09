@@ -17,7 +17,7 @@ pip install scoptimize
 # Getting Started
 
 ## Technical Documentation
-The [Technical Docs](https://connor-makowski.github.io/scoptimize/network.html) can be found [here](https://connor-makowski.github.io/scoptimize/network.html).
+The [Technical Docs](https://connor-makowski.github.io/scoptimize/scoptimize/network.html) can be found [here](https://connor-makowski.github.io/scoptimizescoptimize//network.html).
 
 ## Basic Usage
 ```py
