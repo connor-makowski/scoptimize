@@ -12,7 +12,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scoptimize"
-version = "1.0.0"
+version = "1.0.1"
 description = "Supply Chain Optimization Package"
 authors = [
     {name="Connor Makowski", email="conmak@mit.edu"}
@@ -24,7 +24,7 @@ classifiers = [
     'License :: OSI Approved :: MIT License',
     "Operating System :: OS Independent",
 ]
-dependencies = ["pulp>=2.7.0", "type_enforced>=0.0.16"]
+dependencies = ["pulp>=2.8.0", "type_enforced>=0.0.16"]
 
 [project.urls]
 "Homepage" = "https://github.com/connor-makowski/scoptimize"
